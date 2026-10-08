@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HeatSafe</title>
+<style>
+:root{--bg:#f6f4ef;--fg:#1d2320;--mut:#5d6660;--card:#fff;--line:#d9d5cb;
+--l0:#6fa98b;--l1:#d9b84a;--l2:#e07b39;--l3:#b3322f}
+@media(prefers-color-scheme:dark){:root{--bg:#141816;--fg:#e8ece9;--mut:#9aa59f;--card:#1c211f;--line:#323a36}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 Georgia,"Times New Roman",serif}
+main{max-width:860px;margin:0 auto;padding:24px 16px}
+h1{font-size:2rem;margin:0 0 4px}p.s{color:var(--mut);margin:0 0 20px}
+form{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
+input,select,button{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg)}
+button{background:var(--fg);color:var(--bg);cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--l2)}
+#now{font-size:1.4rem;margin:8px 0}#chart{display:flex;align-items:flex-end;gap:4px;height:180px;border-bottom:1px solid var(--line);overflow-x:auto}
+.bar{flex:1;min-width:26px;border-radius:3px 3px 0 0}
+.lab{display:flex;gap:4px;color:var(--mut);font-size:.8rem}.lab span{flex:1;min-width:26px;text-align:center}
+#st{margin-top:24px;color:var(--mut)}
+</style></head><body><main>
+<h1>Heat risk for outdoor workers</h1>
+<p class="s">Hourly risk from forecast temperature, humidity and sun, adjusted for the kind of work.</p>
+<form id="f">
+<input id="lat" type="number" step="any" value="12.97" aria-label="Latitude">
+<input id="lon" type="number" step="any" value="77.59" aria-label="Longitude">
+<select id="job" aria-label="Job"><option value="delivery">Delivery rider</option><option value="construction">Construction</option><option value="farm">Farm work</option><option value="vendor">Street vendor</option></select>
+<button>Check risk</button></form>
+<div id="now">Loading…</div><div id="chart" role="img" aria-label="Hourly heat risk"></div><div class="lab" id="lab"></div>
+<p id="st"></p>
+</main><script>
+const C=['--l0','--l1','--l2','--l3'],N=['Low','Moderate','High','Extreme'];
+async function load(e){e&&e.preventDefault();
+ const q=new URLSearchParams({lat:lat.value,lon:lon.value,job:job.value});
+ try{const r=await (await fetch('/api/risk?'+q)).json();
+ now.textContent=`Today: ${N[r.level]} risk. Peak ${r.peak}. Work ${r.work} min, rest ${r.rest} min per hour.`;
+ chart.innerHTML=r.rows.map(x=>`<div class="bar" title="${x.hour}:00 WBGT ${x.wbgt}°C" style="height:${Math.min(100,x.wbgt*2.6)}%;background:var(${C[x.level]})"></div>`).join('');
+ lab.innerHTML=r.rows.map(x=>`<span>${x.hour}</span>`).join('');
+ }catch(err){now.textContent='Could not load the forecast. Check the coordinates and your internet connection.'}
+ try{const s=await (await fetch('/api/stats')).json();st.textContent=`${s.workers} workers subscribed.`}catch(err){}}
+f.addEventListener('submit',load);load();
+</script></body></html>

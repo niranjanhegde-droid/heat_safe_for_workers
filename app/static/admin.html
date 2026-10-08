@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HeatSafe admin</title>
+<style>
+:root{--bg:#f4f2ec;--fg:#1c2220;--mut:#5f6963;--line:#d8d4c8;--pn:#fff;--l0:#3f8a68;--l1:#a8861a;--l2:#c4601b;--l3:#b3322f}
+@media(prefers-color-scheme:dark){:root{--bg:#121614;--fg:#e6ebe8;--mut:#98a39d;--line:#2f3833;--pn:#1a201d;--l0:#6fb592;--l1:#d9b84a;--l2:#e88a4a;--l3:#e0645f}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1100px;margin:0 auto;padding:20px 16px 48px}
+h1{font:600 1.8rem Georgia,serif;margin:0}h2{font:600 1.1rem Georgia,serif;margin:28px 0 8px}
+header{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px}
+a{color:inherit}.mut{color:var(--mut)}
+.kpi{display:flex;flex-wrap:wrap;margin:18px 0 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.kpi div{flex:1;min-width:150px;padding:12px 16px;border-left:1px solid var(--line)}.kpi div:first-child{border-left:0;padding-left:0}
+.kpi b{display:block;font:600 2rem Georgia,serif}.kpi span{color:var(--mut);font-size:.85rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:24px}
+.scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:.9rem}
+th{text-align:left;color:var(--mut);font-weight:500;border-bottom:1px solid var(--line);padding:6px 8px}
+td{padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.lv::before{content:"";display:inline-block;width:.6em;height:.6em;border-radius:50%;margin-right:6px;background:currentColor}
+.l0{color:var(--l0)}.l1{color:var(--l1)}.l2{color:var(--l2)}.l3{color:var(--l3)}
+form{display:flex;flex-direction:column;gap:8px;background:var(--pn);border:1px solid var(--line);padding:14px;border-radius:8px}
+input,select,textarea,button{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)}
+button{background:var(--fg);color:var(--bg);cursor:pointer;border:0}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--l2)}
+.row{display:flex;gap:8px}.row input{flex:1;min-width:0}#msg{min-height:1.5em;margin-top:8px}
+</style></head><body><main>
+<header><h1>HeatSafe admin</h1><span class="mut"><a href="/">Public dashboard</a> · <a href="/api/admin/feedback.csv">Export feedback CSV</a></span></header>
+<div class="kpi" id="kpi"></div>
+<h2>Zones</h2><div class="scroll" id="zones"></div>
+<h2>Workers</h2><div class="scroll" id="users"></div>
+<div class="grid">
+ <div><h2>Recent messages</h2><div class="scroll" id="alerts"></div></div>
+ <div><h2>Recent feedback</h2><div class="scroll" id="fb"></div></div>
+</div>
+<div class="grid">
+ <div><h2>Send a broadcast</h2>
+  <form id="bf"><textarea id="bt" rows="3" maxlength="1000" placeholder="e.g. Free water points open at Majestic bus stand today." required></textarea>
+   <select id="bj" aria-label="Audience"><option value="">All workers</option><option value="delivery">Delivery riders</option><option value="construction">Construction</option><option value="farm">Farm work</option><option value="vendor">Street vendors</option></select>
+   <button>Send broadcast</button></form></div>
+ <div><h2>Calibrate with a field meter</h2>
+  <form id="cf"><p class="mut" style="margin:0">Enter a real WBGT meter reading taken now. The model's average error over the last 30 readings is corrected automatically.</p>
+   <div class="row"><input id="clat" type="number" step="any" value="12.97" aria-label="Latitude" required><input id="clon" type="number" step="any" value="77.59" aria-label="Longitude" required></div>
+   <input id="cm" type="number" step="0.1" min="5" max="50" placeholder="Meter WBGT in °C" required>
+   <button>Save reading</button></form><div id="cal" class="scroll"></div></div>
+</div>
+<p id="msg" role="status"></p>
+</main><script>
+const N=['Low','Moderate','High','Extreme'],$=id=>document.getElementById(id);
+const lv=l=>l==null?'<span class="mut">n/a</span>':`<span class="lv l${l}">${N[l]}</span>`;
+const tb=(h,r)=>`<table><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${r.length?r.map(x=>`<tr>${x.map(c=>`<td>${c}</td>`).join('')}</tr>`).join(''):`<tr><td colspan="${h.length}" class="mut">Nothing yet.</td></tr>`}</tbody></table>`;
+const say=t=>$('msg').textContent=t;
+async function post(u,b){const r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});const j=await r.json();if(!r.ok)throw new Error(j.detail||'Request failed');return j}
+async function load(){
+ const d=await (await fetch('/api/admin/overview')).json(),k=d.kpi;
+ $('kpi').innerHTML=[[k.workers,'Active workers'],[k.alerts_24h,'Heat alerts, last 24 h'],[k.too_hot_pct==null?'–':k.too_hot_pct+'%',`Said "too hot" (${k.feedback} replies)`],[(k.bias>0?'+':'')+k.bias+' °C','Model correction']].map(x=>`<div><b>${x[0]}</b><span>${x[1]}</span></div>`).join('');
+ $('zones').innerHTML=tb(['Zone (lat, lon)','Workers','Worst level today'],d.zones.map(z=>[z.zone,z.n,lv(z.max_level)]));
+ $('users').innerHTML=tb(['Worker','Job','Language','Zone','Now','WBGT °C','New to heat','Higher risk','Joined'],d.users.map(u=>[u.id,u.job,u.lang,u.zone,lv(u.level),u.wbgt??'–',u.new_to_heat?'Yes':'No',u.high_risk?'Yes':'No',u.joined||'–']));
+ $('alerts').innerHTML=tb(['Type','Level','Time (UTC)'],d.alerts.map(a=>[a.kind,a.kind==='broadcast'?'–':lv(a.level),a.ts]));
+ $('fb').innerHTML=tb(['Felt','Location','Time (UTC)'],d.feedback.map(f=>[f.felt==='hot'?'Too hot':'Fine',f.lat.toFixed(2)+', '+f.lon.toFixed(2),f.ts]));
+ $('cal').innerHTML=tb(['Meter','Model','Time (UTC)'],d.calibration.map(c=>[c.meter,c.model,c.ts]));
+}
+$('bf').onsubmit=async e=>{e.preventDefault();if(!confirm('Send this message to '+($('bj').selectedOptions[0].text.toLowerCase())+'?'))return;
+ try{const r=await post('/api/admin/broadcast',{text:$('bt').value,job:$('bj').value||null});say(`Sent to ${r.sent} workers.`);$('bt').value='';load()}catch(x){say(x.message)}};
+$('cf').onsubmit=async e=>{e.preventDefault();
+ try{const r=await post('/api/admin/calibrate',{lat:+$('clat').value,lon:+$('clon').value,meter_wbgt:+$('cm').value});say(`Saved. Model said ${r.model_wbgt} °C; correction is now ${r.new_bias} °C.`);$('cm').value='';load()}catch(x){say(x.message)}};
+load();setInterval(load,60000);
+</script></body></html>
