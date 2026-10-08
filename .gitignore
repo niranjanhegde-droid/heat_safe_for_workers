@@ -1,32 +1,18 @@
-# Environment / secrets
 .env
 .env.*
 !.env.example
 
-# Virtual environment
 .venv/
 
-# Python cache
 __pycache__/
 *.py[cod]
 
-# Pytest
 .pytest_cache/
 
-# SQLite database
 *.db
 *.sqlite
 *.sqlite3
 
-# VS Code
 .vscode/
 
-# OS files
-.DS_Store
-Thumbs.db
-
-# Logs
 *.log
-
-# Temporary files
-*.tmp
